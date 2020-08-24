@@ -16,7 +16,6 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
 
     private final Context mContext;
     private final LayoutInflater mLayoutInflater;
-    private View mItemView;
 
     // first step to binding data into views, we need the list of notes
     // next, with this we can now indicate the size of data we have inside the getItemsCount
@@ -44,7 +43,7 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
          *  we then return an instance of our newly created ViewHolder
          *  this is what recyclerview will use to create a pool of Views
          */
-        mItemView = mLayoutInflater.inflate(R.layout.item_note_list, parent, false);
+        View mItemView = mLayoutInflater.inflate(R.layout.item_note_list, parent, false);
         return new ViewHolder(mItemView);
     }
 
@@ -59,7 +58,7 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
         // bind data to the contained views(TextViews) in the ViewHolder
         holder.mTextCourse.setText(note.getCourse().getTitle());
         holder.mTextTitle.setText(note.getTitle());
-        holder.mCurrentPosition = position;
+        holder.mId = note.getId();
     }
 
     @Override
@@ -86,14 +85,15 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
         public final TextView mTextCourse;
         public final TextView mTextTitle;
         // we need the position of this particular view
-        public int mCurrentPosition;
+//        public int mCurrentPosition;
+        public int mId;
 
 
         public ViewHolder(@NonNull View itemView) {
             // receives a view
             super(itemView);
-            mTextCourse = (TextView) mItemView.findViewById(R.id.text_course);
-            mTextTitle = (TextView) mItemView.findViewById((R.id.text_title));
+            mTextCourse = (TextView) itemView.findViewById(R.id.text_course);
+            mTextTitle = (TextView) itemView.findViewById((R.id.text_title));
 
             // associate each view with a click listener
             itemView.setOnClickListener(new View.OnClickListener() {
@@ -102,7 +102,7 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
                     // show note activity for that current position
                     Intent intent = new Intent(mContext, NoteActivity.class);
                     // extra info
-                    intent.putExtra(NoteActivity.NOTE_POSITION, mCurrentPosition);
+                    intent.putExtra(NoteActivity.NOTE_ID, mId);
                     mContext.startActivity(intent);
                 }
             });

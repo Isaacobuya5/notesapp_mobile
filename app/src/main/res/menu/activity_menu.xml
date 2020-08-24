@@ -21,6 +21,8 @@
         android:id="@+id/action_next"
         android:icon="@android:drawable/ic_media_next"
         android:title="Next"
-        app:showAsAction="ifRoom|withText"/>
+        app:showAsAction="ifRoom|withText"
+        android:visible="false"
+        />
 
 </menu>
