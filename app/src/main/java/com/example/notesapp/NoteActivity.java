@@ -30,6 +30,7 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     public static final String NOTE_ID = "com.jwhh.notekeeper.NOTE_POSITION";
     public static final int ID_NOT_SET = -1;
     private static final int LOADER_NOTES = 0;
+    private static final int LOADER_COURSES = 1;
     private NoteInfo mNote = new NoteInfo(DataManager.getInstance().getCourses().get(0),"", "");
     private boolean mIsNewNote;
     private Spinner mSpinnerCourses;
@@ -85,7 +86,9 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         mSpinnerCourses.setAdapter(mAdapterCourses);
 
         // we now need to fetch courses from the database
-        loadCourseData();
+//        loadCourseData();
+        // WE NOW FETCH COURSES USING LAYOUT MANAGER
+        LoaderManager.getInstance(this).initLoader(LOADER_COURSES, null, this);
 
         readDisplayStateValues();
         saveOriginalNoteValues();
@@ -101,18 +104,18 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
 //            displayNote();
     }
 
-    private void loadCourseData() {
-        SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
-        String[] courseColumns = {
-                CourseInfoEntry.COLUMN_COURSE_TITLE,
-                CourseInfoEntry.COLUMN_COURSE_ID,
-                CourseInfoEntry._ID
-        };
-
-        Cursor cursor = db.query(CourseInfoEntry.TABLE_NAME, courseColumns, null, null, null, null,CourseInfoEntry.COLUMN_COURSE_TITLE);
-        // associating the cursor with the adapter
-        mAdapterCourses.changeCursor(cursor);
-    }
+//    private void loadCourseData() {
+//        SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
+//        String[] courseColumns = {
+//                CourseInfoEntry.COLUMN_COURSE_TITLE,
+//                CourseInfoEntry.COLUMN_COURSE_ID,
+//                CourseInfoEntry._ID
+//        };
+//
+//        Cursor cursor = db.query(CourseInfoEntry.TABLE_NAME, courseColumns, null, null, null, null,CourseInfoEntry.COLUMN_COURSE_TITLE);
+//        // associating the cursor with the adapter
+//        mAdapterCourses.changeCursor(cursor);
+//    }
 
 //    private void loadNoteData() {
 //        // get connection to the Database - so we need an instance of dbHelper class
@@ -346,7 +349,25 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         CursorLoader loader = null;
         if (id == LOADER_NOTES)
             loader = createLoaderNotes();
+        else if (id == LOADER_COURSES)
+            loader = createCourseLoader();
         return loader;
+    }
+
+    private CursorLoader createCourseLoader() {
+        return new CursorLoader(this) {
+            @Override
+            public Cursor loadInBackground() {
+                SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
+                String[] courseColumns = {
+                        CourseInfoEntry.COLUMN_COURSE_TITLE,
+                        CourseInfoEntry.COLUMN_COURSE_ID,
+                        CourseInfoEntry._ID
+                };
+
+                return db.query(CourseInfoEntry.TABLE_NAME, courseColumns, null, null, null, null,CourseInfoEntry.COLUMN_COURSE_TITLE);
+            };
+        };
     }
 
     private CursorLoader createLoaderNotes() {
@@ -381,6 +402,8 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         // one activity can have multiple loaders thus the need to check
         if (loader.getId() == LOADER_NOTES)
             loadFinishedNotes(data);
+        else if (loader.getId() == LOADER_COURSES)
+            mAdapterCourses.changeCursor(data);
     }
 
     private void loadFinishedNotes(Cursor data) {
@@ -401,6 +424,7 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         if (loader.getId() == LOADER_NOTES) {
             if (mNoteCursor != null)
                 mNoteCursor.close();
-        }
+        } else if (loader.getId() == LOADER_COURSES)
+            mAdapterCourses.changeCursor(null);
     }
 }
