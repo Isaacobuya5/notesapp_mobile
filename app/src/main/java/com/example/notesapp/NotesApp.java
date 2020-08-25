@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.util.Log;
@@ -17,6 +18,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
 import com.google.android.material.navigation.NavigationView;
 
 import java.util.List;
@@ -107,8 +109,8 @@ public class NotesApp extends AppCompatActivity {
         mNotesLayoutManager = new LinearLayoutManager(this);
         mCoursesLayoutManager = new GridLayoutManager(this, 2);
 
-        List<NoteInfo> notes = DataManager.getInstance().getNotes();
-        mNoteRecyclerAdapter = new NoteRecyclerAdapter(this, notes);
+//        List<NoteInfo> notes = DataManager.getInstance().getNotes();
+        mNoteRecyclerAdapter = new NoteRecyclerAdapter(this, null);
 
         List<CourseInfo> courses = DataManager.getInstance().getCourses();
         mCourseRecyclerAdapter = new CourseRecyclerAdapter(this, courses);
@@ -150,5 +152,28 @@ public class NotesApp extends AppCompatActivity {
         // we need to close SQLiteOpenHelper class here to avoid memory leaks
         mDbOpenHelper.close();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        // get latest data from the database
+        loadNotes();
+        super.onResume();
+    }
+
+    private void loadNotes() {
+        SQLiteDatabase db = mDbOpenHelper.getReadableDatabase();
+        // query database for notes
+        final String[] noteColumns = {
+                NoteInfoEntry._ID,
+                NoteInfoEntry.COLUMN_NOTE_TITLE,
+                NoteInfoEntry.COLUMN_NOTE_TEXT,
+                NoteInfoEntry.COLUMN_COURSE_ID
+        };
+        // ordering notes by multiple columns
+        String notesOrderBy = NoteInfoEntry.COLUMN_COURSE_ID + "," + NoteInfoEntry.COLUMN_NOTE_TITLE;
+        final Cursor notesCursor = db.query(NoteInfoEntry.TABLE_NAME, noteColumns, null, null, null, null, notesOrderBy);
+        // associate the cursor with the RecyclerAdapter
+        mNoteRecyclerAdapter.changeCursor(notesCursor);
     }
 }

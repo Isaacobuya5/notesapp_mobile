@@ -2,6 +2,7 @@ package com.example.notesapp;
 
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,6 +10,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
 
 import java.util.List;
 
@@ -20,14 +23,39 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
     // first step to binding data into views, we need the list of notes
     // next, with this we can now indicate the size of data we have inside the getItemsCount
     // then we can bind data to views using onBindViewHolder()
-    private final List<NoteInfo> mNotes;
+    // nolonger needed - we are fetching notes directly from the database
+//    private final List<NoteInfo> mNotes;
+    private Cursor mCursor;
+    private int mCoursePos;
+    private int mIdPos;
+    private int mNoteTitlePos;
 
-    public NoteRecyclerAdapter(Context context, List<NoteInfo> notes) {
+    public NoteRecyclerAdapter(Context context, Cursor cursor) {
         mContext = context;
         // in order to create a view from a layout resource we need to use a class LayoutInflator
         // create a layout inflator using the current context
         mLayoutInflater = LayoutInflater.from(context);
-        mNotes = notes;
+        mCursor = cursor;
+//        mNotes = notes;
+        populateColumnPositions();
+    }
+
+    private void populateColumnPositions() {
+        if (mCursor == null)
+            return;
+        // get column indexes from the cursor
+        mCoursePos = mCursor.getColumnIndex(NoteInfoEntry.COLUMN_COURSE_ID);
+        mNoteTitlePos = mCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TITLE);
+        mIdPos = mCursor.getColumnIndex(NoteInfoEntry._ID);
+    }
+
+    public void changeCursor(Cursor cursor) {
+        // check if we have an existing cursor
+        if (mCursor != null)
+            mCursor.close();
+        mCursor = cursor;
+        populateColumnPositions();
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -53,18 +81,29 @@ public class NoteRecyclerAdapter extends RecyclerView.Adapter<NoteRecyclerAdapte
          * takes the ViewHolder that is created together with its corresponding position
          * we can now use position to get that particular note
          */
+        // move the cursor to the first position
+        mCursor.moveToPosition(position);
+
+        // getting the actual values
+        String course = mCursor.getString(mCoursePos);
+        String noteTitle = mCursor.getString(mNoteTitlePos);
+        int id = mCursor.getInt(mIdPos);
         // getting note at that corresponding position
-        NoteInfo note = mNotes.get(position);
+//        NoteInfo note = mNotes.get(position);
         // bind data to the contained views(TextViews) in the ViewHolder
-        holder.mTextCourse.setText(note.getCourse().getTitle());
-        holder.mTextTitle.setText(note.getTitle());
-        holder.mId = note.getId();
+//        holder.mTextCourse.setText(note.getCourse().getTitle());
+//        holder.mTextTitle.setText(note.getTitle());
+//        holder.mId = note.getId();
+        holder.mTextCourse.setText(course);
+        holder.mTextTitle.setText(noteTitle);
+        holder.mId = id;
     }
 
     @Override
     public int getItemCount() {
         // return total number of items we want to display
-        return mNotes.size();
+//        return mNotes.size();
+        return mCursor == null ? 0 : mCursor.getCount();
     }
 
     /**

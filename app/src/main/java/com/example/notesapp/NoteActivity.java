@@ -13,8 +13,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
 
+import com.example.notesapp.NoteKeeperDatabaseContract.CourseInfoEntry;
 import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
 
 import java.util.List;
@@ -41,6 +43,7 @@ public class NoteActivity extends AppCompatActivity {
     private int mTitlePos;
     private int mNoteTextPos;
     private int mNoteId;
+    private SimpleCursorAdapter mAdapterCourses;
 
 
     @Override
@@ -64,11 +67,19 @@ public class NoteActivity extends AppCompatActivity {
 
         mSpinnerCourses = findViewById(R.id.spinner_courses);
 
-        List<CourseInfo> courses = DataManager.getInstance().getCourses();
-        ArrayAdapter<CourseInfo> adapterCourses =
-                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, courses);
-        adapterCourses.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        mSpinnerCourses.setAdapter(adapterCourses);
+        // we nolonger need to get the courses from DataManager as we will fetch them directly from the Database
+//        List<CourseInfo> courses = DataManager.getInstance().getCourses();
+        // We will use CursorAdapter instead
+//        ArrayAdapter<CourseInfo> adapterCourses =
+//                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, courses);
+
+        mAdapterCourses = new SimpleCursorAdapter(this, android.R.layout.simple_spinner_item, null, new String[] {
+                CourseInfoEntry.COLUMN_COURSE_TITLE}, new int[] { android.R.id.text1}, 0);
+        mAdapterCourses.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        mSpinnerCourses.setAdapter(mAdapterCourses);
+
+        // we now need to fetch courses from the database
+        loadCourseData();
 
         readDisplayStateValues();
         saveOriginalNoteValues();
@@ -80,6 +91,19 @@ public class NoteActivity extends AppCompatActivity {
             // fetch the note from database here
             loadNoteData();
 //            displayNote();
+    }
+
+    private void loadCourseData() {
+        SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
+        String[] courseColumns = {
+                CourseInfoEntry.COLUMN_COURSE_TITLE,
+                CourseInfoEntry.COLUMN_COURSE_ID,
+                CourseInfoEntry._ID
+        };
+
+        Cursor cursor = db.query(CourseInfoEntry.TABLE_NAME, courseColumns, null, null, null, null,CourseInfoEntry.COLUMN_COURSE_TITLE);
+        // associating the cursor with the adapter
+        mAdapterCourses.changeCursor(cursor);
     }
 
     private void loadNoteData() {
@@ -184,17 +208,37 @@ public class NoteActivity extends AppCompatActivity {
         String mNoteText = mNoteCursor.getString(mNoteTextPos);
 
 
-        List<CourseInfo> courses = DataManager.getInstance().getCourses();
+        // WE are now fetching our list of courses from the db
+//        List<CourseInfo> courses = DataManager.getInstance().getCourses();
         // we are still going to fetch the spinner courses from the Data manager
-        CourseInfo course = DataManager.getInstance().getCourse(courseId);
+//        CourseInfo course = DataManager.getInstance().getCourse(courseId);
 //        int courseIndex = courses.indexOf(mNote.getCourse());
-        int courseIndex = courses.indexOf(course);
+//        int courseIndex = courses.indexOf(course);
+        
+        // get the index corresponding to the course in the cursor.
+        int courseIndex = getIndexOfCourse(courseId);
 
         mSpinnerCourses.setSelection(courseIndex);
 //        mTextNoteTitle.setText(mNote.getTitle());
 //        mTextNoteText.setText(mNote.getText());
         mTextNoteTitle.setText(mNoteTitle);
         mTextNoteText.setText(mNoteText);
+    }
+
+    private int getIndexOfCourse(String courseId) {
+        // get the cursor associated with the adapter
+        Cursor cursor = mAdapterCourses.getCursor();
+        int courseIdPos = cursor.getColumnIndex(CourseInfoEntry.COLUMN_COURSE_ID);
+        int courseRowIndex = 0;
+        boolean more = cursor.moveToFirst();
+
+        while(more) {
+            String cursorCourseId = cursor.getString(courseIdPos);
+            if (courseId.equals(cursorCourseId))
+                break;
+            courseRowIndex++;
+        }
+        return courseRowIndex;
     }
 
 
