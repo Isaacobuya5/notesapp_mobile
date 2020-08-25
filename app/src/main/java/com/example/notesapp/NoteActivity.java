@@ -5,9 +5,14 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.CursorLoader;
+import androidx.loader.content.Loader;
 
 import android.view.Menu;
 import android.view.MenuItem;
@@ -21,9 +26,10 @@ import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
 
 import java.util.List;
 
-public class NoteActivity extends AppCompatActivity {
+public class NoteActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>{
     public static final String NOTE_ID = "com.jwhh.notekeeper.NOTE_POSITION";
     public static final int ID_NOT_SET = -1;
+    private static final int LOADER_NOTES = 0;
     private NoteInfo mNote = new NoteInfo(DataManager.getInstance().getCourses().get(0),"", "");
     private boolean mIsNewNote;
     private Spinner mSpinnerCourses;
@@ -89,7 +95,9 @@ public class NoteActivity extends AppCompatActivity {
 
         if(!mIsNewNote)
             // fetch the note from database here
-            loadNoteData();
+//            loadNoteData();
+            // requesting LoaderManager to load the data from the database
+            LoaderManager.getInstance(this).initLoader(LOADER_NOTES, null, this);
 //            displayNote();
     }
 
@@ -106,42 +114,42 @@ public class NoteActivity extends AppCompatActivity {
         mAdapterCourses.changeCursor(cursor);
     }
 
-    private void loadNoteData() {
-        // get connection to the Database - so we need an instance of dbHelper class
-        SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
-        // specify the query criteria
-//        String courseId = "android_intents";
-//        String titleStart = "dynamic";
-
-//        String selection = NoteInfoEntry.COLUMN_COURSE_ID + "= ?" +
-//                " AND " + NoteInfoEntry.COLUMN_NOTE_TITLE + " LIKE ?";
-
-//        String[] selectionArgs = { courseId, titleStart+ "%"};
-
-        // we are fetching the appropriate note by id instead
-        String selection = NoteInfoEntry._ID + " = ?";
-
-        String[] selectionArgs = {Integer.toString(mNoteId)};
-
-        // we now need to query the NoteInfo table
-        String[] noteColumns = {
-                NoteInfoEntry.COLUMN_COURSE_ID,
-                NoteInfoEntry.COLUMN_NOTE_TITLE,
-                NoteInfoEntry.COLUMN_NOTE_TEXT
-        };
-
-        // querying the database
-        mNoteCursor = db.query(NoteInfoEntry.TABLE_NAME,noteColumns,selection,selectionArgs,null,null,null);
-
-        // we now want to iterate the cursor for results
-        mCourseInfoPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_COURSE_ID);
-        mTitlePos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TITLE);
-        mNoteTextPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TEXT);
-
-        // place cursor to the first result
-        mNoteCursor.moveToNext();
-        displayNote();
-    }
+//    private void loadNoteData() {
+//        // get connection to the Database - so we need an instance of dbHelper class
+//        SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
+//        // specify the query criteria
+////        String courseId = "android_intents";
+////        String titleStart = "dynamic";
+//
+////        String selection = NoteInfoEntry.COLUMN_COURSE_ID + "= ?" +
+////                " AND " + NoteInfoEntry.COLUMN_NOTE_TITLE + " LIKE ?";
+//
+////        String[] selectionArgs = { courseId, titleStart+ "%"};
+//
+//        // we are fetching the appropriate note by id instead
+//        String selection = NoteInfoEntry._ID + " = ?";
+//
+//        String[] selectionArgs = {Integer.toString(mNoteId)};
+//
+//        // we now need to query the NoteInfo table
+//        String[] noteColumns = {
+//                NoteInfoEntry.COLUMN_COURSE_ID,
+//                NoteInfoEntry.COLUMN_NOTE_TITLE,
+//                NoteInfoEntry.COLUMN_NOTE_TEXT
+//        };
+//
+//        // querying the database
+//        mNoteCursor = db.query(NoteInfoEntry.TABLE_NAME,noteColumns,selection,selectionArgs,null,null,null);
+//
+//        // we now want to iterate the cursor for results
+//        mCourseInfoPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_COURSE_ID);
+//        mTitlePos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TITLE);
+//        mNoteTextPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TEXT);
+//
+//        // place cursor to the first result
+//        mNoteCursor.moveToNext();
+//        displayNote();
+//    }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -327,5 +335,72 @@ public class NoteActivity extends AppCompatActivity {
     protected void onDestroy() {
         mMDbOpenHelper.close();
         super.onDestroy();
+    }
+
+
+    @NonNull
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, @Nullable Bundle args) {
+        // CursorLoader is the best loader specialized for cursor based data
+        // also works best for a special kind of component known as Content Providers.
+        CursorLoader loader = null;
+        if (id == LOADER_NOTES)
+            loader = createLoaderNotes();
+        return loader;
+    }
+
+    private CursorLoader createLoaderNotes() {
+        return new CursorLoader(this) {
+            @Override
+            public Cursor loadInBackground() {
+                // get connection to the Database - so we need an instance of dbHelper class
+                SQLiteDatabase db = mMDbOpenHelper.getReadableDatabase();
+                // we are fetching the appropriate note by id instead
+                String selection = NoteInfoEntry._ID + " = ?";
+
+                String[] selectionArgs = {Integer.toString(mNoteId)};
+
+                // we now need to query the NoteInfo table
+                String[] noteColumns = {
+                        NoteInfoEntry.COLUMN_COURSE_ID,
+                        NoteInfoEntry.COLUMN_NOTE_TITLE,
+                        NoteInfoEntry.COLUMN_NOTE_TEXT
+                };
+
+                // querying the database
+                return db.query(NoteInfoEntry.TABLE_NAME,noteColumns,selection,selectionArgs,null,null,null);
+            }
+        };
+    }
+
+
+    @Override
+    public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor data) {
+        // this method is called once we have results
+        // handling the results
+        // one activity can have multiple loaders thus the need to check
+        if (loader.getId() == LOADER_NOTES)
+            loadFinishedNotes(data);
+    }
+
+    private void loadFinishedNotes(Cursor data) {
+        // assign this cursor to the member field cursor
+        mNoteCursor = data;
+        // we now want to iterate the cursor for results
+        mCourseInfoPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_COURSE_ID);
+        mTitlePos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TITLE);
+        mNoteTextPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TEXT);
+
+        // place cursor to the first result
+        mNoteCursor.moveToNext();
+        displayNote();
+    }
+
+    @Override
+    public void onLoaderReset(@NonNull Loader<Cursor> loader) {
+        if (loader.getId() == LOADER_NOTES) {
+            if (mNoteCursor != null)
+                mNoteCursor.close();
+        }
     }
 }
