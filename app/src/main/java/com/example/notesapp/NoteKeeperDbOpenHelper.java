@@ -6,6 +6,9 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 import androidx.annotation.Nullable;
 
+import com.example.notesapp.NoteKeeperDatabaseContract.CourseInfoEntry;
+import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
+
 public class NoteKeeperDbOpenHelper extends SQLiteOpenHelper {
 
 //    // constant containing the file name of our db
@@ -42,15 +45,21 @@ public class NoteKeeperDbOpenHelper extends SQLiteOpenHelper {
 //    }
 
     public static final String DATABASE_NAME = "NoteKeeper.db";
-    public static final int DATABASE_VERSION = 1;
+//    public static final int DATABASE_VERSION = 1;
+    // change to version 2 now that we have added indexes to our table.
+    public static final int DATABASE_VERSION = 2;
     public NoteKeeperDbOpenHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL(NoteKeeperDatabaseContract.CourseInfoEntry.SQL_CREATE_TABLE);
-        db.execSQL(NoteKeeperDatabaseContract.NoteInfoEntry.SQL_CREATE_TABLE);
+        db.execSQL(CourseInfoEntry.SQL_CREATE_TABLE);
+        db.execSQL(NoteInfoEntry.SQL_CREATE_TABLE);
+
+        // creating the actual indexes.
+        db.execSQL(CourseInfoEntry.SQL_CREATE_INDEX1);
+        db.execSQL(NoteInfoEntry.SQL_CREATE_INDEX1);
 
         DatabaseDataWorker worker = new DatabaseDataWorker(db);
         worker.insertCourses();
@@ -59,6 +68,9 @@ public class NoteKeeperDbOpenHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-
+        if (oldVersion < 2) {
+            db.execSQL(CourseInfoEntry.SQL_CREATE_INDEX1);
+            db.execSQL(NoteInfoEntry.SQL_CREATE_INDEX1);
+        }
     }
 }

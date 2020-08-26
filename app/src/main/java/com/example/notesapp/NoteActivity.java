@@ -1,8 +1,10 @@
 package com.example.notesapp;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.AsyncTask;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -51,6 +53,8 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     private int mNoteTextPos;
     private int mNoteId;
     private SimpleCursorAdapter mAdapterCourses;
+    private boolean mMCoursesQueryFinished;
+    private boolean mMNotesQueryFinished;
 
 
     @Override
@@ -183,13 +187,49 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         super.onPause();
         if(mIsCancelling) {
             if(mIsNewNote) {
-                DataManager.getInstance().removeNote(mNotePosition);
+//                DataManager.getInstance().removeNote(mNotePosition);
+                // deleting note from the database
+                deleteNoteFromDatabase();
             } else {
                 storePreviousNoteValues();
             }
         } else {
             saveNote();
         }
+    }
+
+    private void deleteNoteFromDatabase() {
+       // first specify the selection criteria
+       final String selection = NoteInfoEntry._ID + " = ?";
+       final String[] selectionArgs = { Integer.toString(mNoteId) };
+
+        AsyncTask task = new AsyncTask() {
+            @Override
+            protected Object doInBackground(Object[] objects) {
+                // connect to the database
+                SQLiteDatabase db = mMDbOpenHelper.getWritableDatabase();
+                db.delete(NoteInfoEntry.TABLE_NAME, selection, selectionArgs);
+                return null;
+            }
+        };
+        task.execute();
+    }
+
+    // method to save note to database
+    private void saveNoteToDatabase(String courseId, String noteTitle, String noteText) {
+        // identify which note to update
+        String selection = NoteInfoEntry._ID + " = ?";
+        String[] selectionArgs = {Integer.toString(mNoteId)};
+
+        // identify column and new values
+        ContentValues values = new ContentValues();
+        values.put(NoteInfoEntry.COLUMN_COURSE_ID, courseId);
+        values.put(NoteInfoEntry.COLUMN_NOTE_TITLE, noteTitle);
+        values.put(NoteInfoEntry.COLUMN_NOTE_TEXT, noteText);
+
+        // getting connection to the database
+        SQLiteDatabase db = mMDbOpenHelper.getWritableDatabase();
+        db.update(NoteInfoEntry.TABLE_NAME, values,selection,selectionArgs);
     }
 
     @Override
@@ -207,9 +247,30 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     private void saveNote() {
-        mNote.setCourse((CourseInfo) mSpinnerCourses.getSelectedItem());
-        mNote.setTitle(mTextNoteTitle.getText().toString());
-        mNote.setText(mTextNoteText.getText().toString());
+//        mNote.setCourse((CourseInfo) mSpinnerCourses.getSelectedItem());
+//        mNote.setTitle(mTextNoteTitle.getText().toString());
+//        mNote.setText(mTextNoteText.getText().toString());
+        // getting the selected value of the spinner
+        String courseId = selectedCourseId();
+        String noteTitle = mTextNoteTitle.getText().toString();
+        String noteText = mTextNoteText.getText().toString();
+        saveNoteToDatabase(courseId, noteTitle, noteText);
+    }
+
+    private String selectedCourseId() {
+        // identify position currently selected in the spinner
+        int selectedPosition = mSpinnerCourses.getSelectedItemPosition();
+        // figure out what course id that corresponds to
+        // first we need a reference to cursor associated with adaptor that populated the spinner
+        Cursor cursor = mAdapterCourses.getCursor();
+        // move to that position
+        cursor.moveToPosition(selectedPosition);
+        // find out the index of the column that contains the course id
+        int courseIdPos = cursor.getColumnIndex(CourseInfoEntry.COLUMN_COURSE_ID);
+        // getting the actual value
+        String courseId = cursor.getString(courseIdPos);
+
+        return courseId;
     }
 
     private void displayNote() {
@@ -274,9 +335,19 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     private void createNewNote() {
-        DataManager dm = DataManager.getInstance();
-        mNotePosition = dm.createNewNote();
-        mNote = dm.getNotes().get(mNotePosition);
+//        DataManager dm = DataManager.getInstance();
+//        mNotePosition = dm.createNewNote();
+//        mNote = dm.getNotes().get(mNotePosition);
+        // specifying the values we need to put there
+        ContentValues values = new ContentValues();
+        values.put(NoteInfoEntry.COLUMN_COURSE_ID, "");
+        values.put(NoteInfoEntry.COLUMN_NOTE_TITLE, "");
+        values.put(NoteInfoEntry.COLUMN_NOTE_TEXT, "");
+
+        // connect to the database
+        SQLiteDatabase db = mMDbOpenHelper.getWritableDatabase();
+        // insert to the database returns id for that inserted database
+        mNoteId = (int) db.insert(NoteInfoEntry.TABLE_NAME, null, values);
     }
 
     @Override
@@ -355,6 +426,7 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     private CursorLoader createCourseLoader() {
+        mMCoursesQueryFinished = false;
         return new CursorLoader(this) {
             @Override
             public Cursor loadInBackground() {
@@ -371,6 +443,7 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     private CursorLoader createLoaderNotes() {
+        mMNotesQueryFinished = false;
         return new CursorLoader(this) {
             @Override
             public Cursor loadInBackground() {
@@ -404,6 +477,8 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
             loadFinishedNotes(data);
         else if (loader.getId() == LOADER_COURSES)
             mAdapterCourses.changeCursor(data);
+            mMCoursesQueryFinished = true;
+            displayNoteWhenQueryFinished();
     }
 
     private void loadFinishedNotes(Cursor data) {
@@ -415,8 +490,15 @@ public class NoteActivity extends AppCompatActivity implements LoaderManager.Loa
         mNoteTextPos = mNoteCursor.getColumnIndex(NoteInfoEntry.COLUMN_NOTE_TEXT);
 
         // place cursor to the first result
-        mNoteCursor.moveToNext();
-        displayNote();
+        mNoteCursor.moveToFirst();
+        mMNotesQueryFinished = true;
+//        displayNote();
+        displayNoteWhenQueryFinished();
+    }
+
+    private void displayNoteWhenQueryFinished() {
+        if (mMNotesQueryFinished && mMCoursesQueryFinished)
+            displayNote();
     }
 
     @Override

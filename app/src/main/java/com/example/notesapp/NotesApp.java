@@ -1,11 +1,15 @@
 package com.example.notesapp;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.CursorLoader;
+import androidx.loader.content.Loader;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -18,13 +22,15 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.example.notesapp.NoteKeeperDatabaseContract.CourseInfoEntry;
 import com.example.notesapp.NoteKeeperDatabaseContract.NoteInfoEntry;
 import com.google.android.material.navigation.NavigationView;
 
 import java.util.List;
 
-public class NotesApp extends AppCompatActivity {
+public class NotesApp extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>{
 
+    private static final int LOADER_NOTES = 0;
     private Toolbar mMToolBar;
     private ActionBarDrawerToggle mDrawerToggle;
     private DrawerLayout mDrawer;
@@ -157,7 +163,9 @@ public class NotesApp extends AppCompatActivity {
     @Override
     protected void onResume() {
         // get latest data from the database
-        loadNotes();
+//        loadNotes();
+        LoaderManager.getInstance(this).restartLoader(LOADER_NOTES, null, this);
+
         super.onResume();
     }
 
@@ -175,5 +183,48 @@ public class NotesApp extends AppCompatActivity {
         final Cursor notesCursor = db.query(NoteInfoEntry.TABLE_NAME, noteColumns, null, null, null, null, notesOrderBy);
         // associate the cursor with the RecyclerAdapter
         mNoteRecyclerAdapter.changeCursor(notesCursor);
+    }
+
+    @NonNull
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, @Nullable Bundle args) {
+        CursorLoader loader = null;
+        if (id == LOADER_NOTES) {
+            loader = new CursorLoader(this) {
+                @Override
+                public Cursor loadInBackground() {
+                    SQLiteDatabase db = mDbOpenHelper.getReadableDatabase();
+                    // query database for notes
+                    final String[] noteColumns = {
+                            NoteInfoEntry.getName(NoteInfoEntry._ID),
+                            NoteInfoEntry.COLUMN_NOTE_TITLE,
+                            CourseInfoEntry.COLUMN_COURSE_TITLE
+                    };
+
+                    String tablesWithJoin = NoteInfoEntry.TABLE_NAME + " JOIN " +
+                            CourseInfoEntry.TABLE_NAME + " ON " +
+                            NoteInfoEntry.getName(NoteInfoEntry.COLUMN_COURSE_ID) +
+                            " = " + CourseInfoEntry.getName(CourseInfoEntry.COLUMN_COURSE_ID);
+
+                    // ordering notes by multiple columns
+                    String notesOrderBy = CourseInfoEntry.COLUMN_COURSE_TITLE + "," + NoteInfoEntry.COLUMN_NOTE_TITLE;
+                    return db.query(tablesWithJoin, noteColumns, null, null, null, null, notesOrderBy);
+                };
+            };
+        };
+        return loader;
+    };
+
+    @Override
+    public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor data) {
+        if (loader.getId() == LOADER_NOTES)
+            mNoteRecyclerAdapter.changeCursor(data);
+    }
+
+    @Override
+    public void onLoaderReset(@NonNull Loader<Cursor> loader) {
+        if (loader.getId() == LOADER_NOTES) {
+            mNoteRecyclerAdapter.changeCursor(null);
+        }
     }
 }
